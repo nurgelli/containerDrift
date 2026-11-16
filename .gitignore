@@ -1,0 +1,4 @@
+containerdrift.exe
+/dist/
+
+.env
