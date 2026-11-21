@@ -2,3 +2,4 @@ containerdrift.exe
 /dist/
 
 .env
+.exe
