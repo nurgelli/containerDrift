@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/nurgelli/containerdrift/internal/cli"
 	"os"
 	"os/signal"
-	"github.com/nurgelli/containerdrift/internal/cli"
 )
 
 // version is set at build time: go build -ldflags "-X main.version=0.1.0".

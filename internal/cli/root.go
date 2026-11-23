@@ -8,7 +8,8 @@ import (
 // NewRootCmd builds the root command. It is a function, not a package-level
 // variable, so each test can create its own fresh command tree.
 func NewRootCmd(version string) *cobra.Command {
-	return &cobra.Command{
+	root := &cobra.Command{
+
 		Use:     "containerdrift",
 		Short:   "Detect drift between Docker Compose config and running containers",
 		Version: version,
@@ -17,6 +18,9 @@ func NewRootCmd(version string) *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
+	root.AddCommand(newScanCmd())
+	return root
+
 }
 
 // Execute runs the CLI and returns the first error, if any.
