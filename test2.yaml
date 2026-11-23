@@ -1,0 +1,13 @@
+services:
+  web:
+    image: nginx:alpine
+    restart: on-failure:3
+    ports:
+      - "3000"
+      - "8000-8002:8000-8002"
+      - "[::1]:7070:70"
+    volumes:
+      - ./data:/data:ro
+      - cache:/cache
+volumes:
+  cache:

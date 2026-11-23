@@ -19,9 +19,21 @@ type CommandError struct {
 	Stderr   string
 }
 
+const maxStderrLines = 5
+
 func (e *CommandError) Error() string {
 	return fmt.Sprintf("docker %s failed (exit code %d): %s",
-		strings.Join(e.Args, " "), e.ExitCode, strings.TrimSpace(e.Stderr))
+		strings.Join(e.Args, " "), e.ExitCode, firstLines(e.Stderr, maxStderrLines))
+}
+
+// firstLines keeps error messages short; the full text stays in the Stderr
+// field for callers that need it.
+func firstLines(s string, n int) string {
+	lines := strings.Split(strings.ReplaceAll(strings.TrimSpace(s), "\r\n", "\n"), "\n")
+	if len(lines) <= n {
+		return strings.Join(lines, "\n")
+	}
+	return strings.Join(lines[:n], "\n") + "\n..."
 }
 
 // runner executes the docker CLI with the given arguments and returns stdout.
