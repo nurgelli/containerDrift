@@ -1,0 +1,24 @@
+# A small project to try ContainerDrift on.
+#
+#   docker compose -f examples/demo-compose.yaml -p demo up -d
+#   containerdrift scan -f examples/demo-compose.yaml -p demo
+#
+# Then edit a port below WITHOUT running "up" again and scan once more: the
+# difference between this file and the running container is reported.
+services:
+  web:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - web_cache:/var/cache/nginx
+
+  cache:
+    image: redis:7-alpine
+    restart: "no"
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  web_cache:

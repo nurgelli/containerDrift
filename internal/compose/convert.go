@@ -2,6 +2,7 @@ package compose
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -11,8 +12,24 @@ import (
 	"github.com/nurgelli/containerdrift/internal/model"
 )
 
+// minMajorVersion is the oldest Compose major version we accept. Only 2.38.1
+// has been tested; the check merely rejects the legacy Python docker-compose.
+const minMajorVersion = 2
+
 // Read returns the desired state described by the Compose configuration.
 func (r *Reader) Read(ctx context.Context, opts Options) (model.Project, error) {
+	// Fail early with a clear message when Compose is missing. A version
+	// string we cannot parse is not fatal: "config" will tell us if Compose
+	// really does not work.
+	v, err := r.Version(ctx)
+	switch {
+	case errors.Is(err, ErrUnavailable):
+		return model.Project{}, err
+	case err == nil && v.Major < minMajorVersion:
+		return model.Project{}, fmt.Errorf("%w: Compose %d or newer is required, found %s",
+			ErrUnavailable, minMajorVersion, v)
+	}
+
 	raw, err := r.loadRaw(ctx, opts)
 	if err != nil {
 		return model.Project{}, err

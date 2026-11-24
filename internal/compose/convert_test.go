@@ -1,8 +1,10 @@
 package compose
 
 import (
-	"os"
+	"context"
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/nurgelli/containerdrift/internal/model"
@@ -10,11 +12,7 @@ import (
 
 func convertFixture(t *testing.T, name string) model.Project {
 	t.Helper()
-	data, err := os.ReadFile("testdata/" + name)
-	if err != nil {
-		t.Fatalf("reading fixture: %v", err)
-	}
-	raw, err := decodeConfig(data)
+	raw, err := decodeConfig(readFixture(t, name))
 	if err != nil {
 		t.Fatalf("decodeConfig() error = %v", err)
 	}
@@ -50,7 +48,6 @@ func TestConvertEdgeCases(t *testing.T) {
 	if !slices.Equal(web.Mounts, wantMounts) {
 		t.Errorf("mounts = %+v, want %+v", web.Mounts, wantMounts)
 	}
-
 	if want := (model.RestartPolicy{Name: "on-failure", MaxRetries: 3}); web.Restart != want {
 		t.Errorf("restart = %+v, want %+v", web.Restart, want)
 	}
@@ -93,22 +90,22 @@ func TestConvertSortsServicesAndDefaults(t *testing.T) {
 
 func TestParseRestart(t *testing.T) {
 	tests := []struct {
+		name    string
 		in      string
 		want    model.RestartPolicy
 		wantErr bool
 	}{
-		{"", model.RestartPolicy{Name: "no"}, false},
-		{"no", model.RestartPolicy{Name: "no"}, false},
-		{"always", model.RestartPolicy{Name: "always"}, false},
-		{"unless-stopped", model.RestartPolicy{Name: "unless-stopped"}, false},
-		{"on-failure", model.RestartPolicy{Name: "on-failure"}, false},
-		{"on-failure:3", model.RestartPolicy{Name: "on-failure", MaxRetries: 3}, false},
-		{"on-failure:x", model.RestartPolicy{}, true},
-		{"on-failure:-1", model.RestartPolicy{}, true},
+		{"unset", "", model.RestartPolicy{Name: "no"}, false},
+		{"no", "no", model.RestartPolicy{Name: "no"}, false},
+		{"always", "always", model.RestartPolicy{Name: "always"}, false},
+		{"unless-stopped", "unless-stopped", model.RestartPolicy{Name: "unless-stopped"}, false},
+		{"on-failure", "on-failure", model.RestartPolicy{Name: "on-failure"}, false},
+		{"on-failure with retries", "on-failure:3", model.RestartPolicy{Name: "on-failure", MaxRetries: 3}, false},
+		{"bad retries", "on-failure:x", model.RestartPolicy{}, true},
+		{"negative retries", "on-failure:-1", model.RestartPolicy{}, true},
 	}
-
 	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			got, err := parseRestart(tt.in)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("parseRestart(%q) error = %v, wantErr %v", tt.in, err, tt.wantErr)
@@ -127,7 +124,6 @@ func TestConvertWarnsAboutUnsupportedMount(t *testing.T) {
 			"web": {Image: "nginx", Volumes: []rawMount{{Type: "tmpfs", Target: "/tmp"}}},
 		},
 	}
-
 	project, err := convert(raw)
 	if err != nil {
 		t.Fatalf("convert() error = %v", err)
@@ -158,4 +154,53 @@ func TestFirstLines(t *testing.T) {
 			}
 		})
 	}
+}
+
+// fakeRunner answers "compose version" and "compose ... config" differently.
+func fakeRunner(version string, versionErr error, configJSON string) runner {
+	return func(_ context.Context, args ...string) ([]byte, error) {
+		if len(args) >= 2 && args[1] == "version" {
+			return []byte(version), versionErr
+		}
+		return []byte(configJSON), nil
+	}
+}
+
+func TestReaderRead(t *testing.T) {
+	const cfg = `{"name":"demo","services":{"web":{"image":"nginx"}}}`
+
+	t.Run("ok", func(t *testing.T) {
+		r := &Reader{run: fakeRunner("2.38.1\n", nil, cfg)}
+		p, err := r.Read(context.Background(), Options{})
+		if err != nil {
+			t.Fatalf("Read() error = %v", err)
+		}
+		if p.Name != "demo" || len(p.Services) != 1 {
+			t.Errorf("project = %+v", p)
+		}
+	})
+
+	t.Run("unparsable version is not fatal", func(t *testing.T) {
+		r := &Reader{run: fakeRunner("weird", nil, cfg)}
+		if _, err := r.Read(context.Background(), Options{}); err != nil {
+			t.Errorf("Read() error = %v", err)
+		}
+	})
+
+	t.Run("compose missing", func(t *testing.T) {
+		missing := &CommandError{ExitCode: 1, Stderr: "'compose' is not a docker command"}
+		r := &Reader{run: fakeRunner("", missing, cfg)}
+		_, err := r.Read(context.Background(), Options{})
+		if !errors.Is(err, ErrUnavailable) {
+			t.Errorf("error = %v, want ErrUnavailable", err)
+		}
+	})
+
+	t.Run("compose v1 rejected", func(t *testing.T) {
+		r := &Reader{run: fakeRunner("1.29.2\n", nil, cfg)}
+		_, err := r.Read(context.Background(), Options{})
+		if !errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "required") {
+			t.Errorf("error = %v", err)
+		}
+	})
 }

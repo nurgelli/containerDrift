@@ -1,5 +1,13 @@
-containerdrift.exe
+# Build output
+/containerdrift
+/containerdrift.exe
 /dist/
 
-.env
-.exe
+# Test and coverage output
+coverage.out
+*.test
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store

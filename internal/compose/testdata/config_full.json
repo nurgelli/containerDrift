@@ -2,19 +2,11 @@
   "name": "demo",
   "services": {
     "api": {
-      "build": {
-        "context": "/home/user/demo",
-        "dockerfile": "Dockerfile"
-      },
+      "build": { "context": "/home/user/demo", "dockerfile": "Dockerfile" },
       "command": null,
       "environment": { "DB_PASSWORD": "SUPERSECRET-DO-NOT-LEAK" },
       "ports": [
-        {
-          "mode": "ingress",
-          "target": 8000,
-          "published": "8000",
-          "protocol": "tcp"
-        }
+        { "mode": "ingress", "target": 8000, "published": "8000", "protocol": "tcp" }
       ],
       "volumes": [
         {
@@ -26,27 +18,15 @@
       ]
     },
     "db": {
-      "environment": {
-        "POSTGRES_PASSWORD": "SUPERSECRET-DO-NOT-LEAK"
-      },
+      "environment": { "POSTGRES_PASSWORD": "SUPERSECRET-DO-NOT-LEAK" },
       "image": "postgres:15-alpine",
       "ports": [
-        {
-          "mode": "ingress",
-          "target": 5432,
-          "published": "5432",
-          "protocol": "tcp"
-        }
+        { "mode": "ingress", "target": 5432, "published": "5432", "protocol": "tcp" }
       ],
       "restart": "unless-stopped",
       "privileged": true,
       "volumes": [
-        {
-          "type": "volume",
-          "source": "db_data",
-          "target": "/var/lib/postgresql/data",
-          "volume": {}
-        }
+        { "type": "volume", "source": "db_data", "target": "/var/lib/postgresql/data", "volume": {} }
       ]
     }
   },
